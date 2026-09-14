@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Career Advisor - Resume Parser & Job Matcher</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            color: white;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease;
+            margin-bottom: 20px;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .card h2 {
+            color: #4a5568;
+            margin-bottom: 15px;
+            font-size: 1.4rem;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 10px;
+        }
+        
+        .card h3 {
+            color: #2d3748;
+            margin: 15px 0 10px 0;
+            font-size: 1.2rem;
+        }
+        
+        .upload-section {
+            grid-column: 1 / -1;
+            text-align: center;
+        }
+        
+        .file-upload {
+            border: 3px dashed #cbd5e0;
+            border-radius: 12px;
+            padding: 40px;
+            margin: 20px 0;
+            transition: border-color 0.3s ease;
+            background: #f7fafc;
+        }
+        
+        .file-upload:hover {
+            border-color: #667eea;
+        }
+        
+        .file-upload.dragover {
+            border-color: #667eea;
+            background: #ebf4ff;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 14px 35px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .course-btn {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 5px;
+        }
+
+        .course-btn:hover {
+            background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
+            transform: translateY(-1px);
+        }
+        
+        .results-section {
+            display: none;
+        }
+        
+        .results-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .enhanced-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .skills-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 10px 0;
+        }
+        
+        .skill-tag {
+            background: #e2e8f0;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .skill-tag.missing {
+            background: #fed7d7;
+            color: #c53030;
+        }
+        
+        .skill-tag.trending {
+            background: #c6f6d5;
+            color: #276749;
+        }
+        
+        .match-item, .job-item, .analysis-item {
+            border: 1px solid #e2e8f0;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            background: #f7fafc;
+        }
+        
+        .match-score {
+            float: right;
+            background: #48bb78;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 4px solid #c53030;
+        }
+        
+        .success {
+            background: #c6f6d5;
+            color: #2d3748;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 4px solid #48bb78;
+        }
+        
+        .category-badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            margin: 2px;
+            cursor: pointer;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 15px;
+            background: #f7fafc;
+            border-radius: 8px;
+        }
+        
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: #718096;
+        }
+        
+        .profile-strength {
+            background: linear-gradient(90deg, #e53e3e, #ed8936, #38a169);
+            height: 20px;
+            border-radius: 10px;
+            margin: 10px 0;
+            position: relative;
+        }
+        
+        .profile-strength-fill {
+            height: 100%;
+            border-radius: 10px;
+            background: linear-gradient(90deg, #38a169, #68d391);
+            transition: width 0.5s ease;
+        }
+        
+        .strength-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #718096;
+            margin-top: 5px;
+        }
+        
+        .interview-question {
+            background: #ebf8ff;
+            border-left: 4px solid #4299e1;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 4px;
+        }
+        
+        .learning-resource {
+            background: #f0fff4;
+            border-left: 4px solid #48bb78;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 4px;
+        }
+        
+        .salary-badge {
+            background: #fef5e7;
+            color: #d69e2e;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .progress-item {
+            margin: 10px 0;
+        }
+        
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        
+        .progress-bar {
+            background: #e2e8f0;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: #667eea;
+            transition: width 0.5s ease;
+        }
+
+        .course-item {
+            margin: 8px 0;
+            padding: 8px;
+            background: white;
+            border-radius: 6px;
+            border-left: 3px solid #667eea;
+        }
+
+        .course-name {
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .course-type {
+            font-size: 0.8rem;
+            color: #718096;
+            margin-left: 8px;
+        }
+
+        .course-link {
+            display: inline-block;
+            font-size: 0.8rem;
+            color: #667eea;
+            text-decoration: none;
+            margin-top: 4px;
+            padding: 4px 8px;
+            background: #ebf8ff;
+            border-radius: 4px;
+            border: 1px solid #bee3f8;
+        }
+
+        .course-link:hover {
+            background: #bee3f8;
+            text-decoration: none;
+        }
+
+        .external-link {
+            color: #3182ce;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .external-link:hover {
+            text-decoration: underline;
+        }
+        
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+            .results-grid {
+                grid-template-columns: 1fr;
+            }
+            .enhanced-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 AI Career Advisor</h1>
+            <p>Resume Parser, Job Matcher & Career Growth Assistant</p>
+        </div>
+        
+        <div class="dashboard">
+            <div class="card upload-section">
+                <h2>Upload Your Resume</h2>
+                <p><b><i>Supported formats: PDF, DOCX, TXT - Get comprehensive career analysis</i></b></p>
+                
+                <div class="file-upload" id="dropZone">
+                    <p>📁 Drag & drop your resume here or click to browse</p>
+                    <input type="file" id="resumeFile" accept=".pdf,.docx,.txt" style="display: none;">
+                    <button class="btn" onclick="document.getElementById('resumeFile').click()">Choose File</button>
+                </div>
+                
+                <button class="btn" id="analyzeBtn" disabled>Analyze Resume & Get Career Insights</button>
+                
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>Analyzing your resume and generating career insights...</p>
+                </div>
+                
+                <div id="uploadStatus"></div>
+            </div>
+            
+            <div class="card">
+                <h2>📈 Dataset Overview</h2>
+                <div class="stats-grid" id="statsGrid">
+                    <div class="stat-item">
+                        <div class="stat-number" id="totalResumes">-</div>
+                        <div class="stat-label">Total Resumes</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="totalCategories">-</div>
+                        <div class="stat-label">Job Categories</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="avgLength">-</div>
+                        <div class="stat-label">Avg Length</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2>🎯 Explore Career Paths</h2>
+                <div id="categoryList">
+                    <p>Loading career categories...</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="results-section" id="resultsSection">
+            <!-- Basic Analysis -->
+            <div class="card">
+                <h2>📋 Resume Analysis Results</h2>
+                <div id="resumeInfo"></div>
+            </div>
+            
+            <!-- Profile Strength & Skills Analysis -->
+            <div class="card">
+                <h2>💪 Profile Strength & Skills Analysis</h2>
+                <div id="profileAnalysis"></div>
+            </div>
+            
+            <!-- Enhanced Features Grid -->
+            <div class="enhanced-grid">
+                <!-- Skill Gap Analysis -->
+                <div class="card">
+                    <h2>🔍 Skill Gap Analysis</h2>
+                    <div id="skillGapAnalysis"></div>
+                </div>
+                
+                <!-- Interview Preparation -->
+                <div class="card">
+                    <h2>🎤 Interview Preparation</h2>
+                    <div id="interviewPrep"></div>
+                </div>
+                
+                <!-- Learning Recommendations -->
+                <div class="card">
+                    <h2>📚 Learning Recommendations</h2>
+                    <div id="learningRecommendations"></div>
+                </div>
+            </div>
+            
+            <!-- Job Recommendations & Matches -->
+            <div class="results-grid">
+                <div class="card">
+                    <h2>💼 Job Recommendations</h2>
+                    <div id="jobRecommendations"></div>
+                </div>
+                
+                <div class="card">
+                    <h2>👥 Similar Profiles</h2>
+                    <div id="similarResumes"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const resumeFile = document.getElementById('resumeFile');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const loading = document.getElementById('loading');
+        const uploadStatus = document.getElementById('uploadStatus');
+        const resultsSection = document.getElementById('resultsSection');
+        const dropZone = document.getElementById('dropZone');
+        
+        // Event Listeners
+        resumeFile.addEventListener('change', handleFileSelect);
+        analyzeBtn.addEventListener('click', analyzeResume);
+        
+        // Drag and drop functionality
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+        
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+        
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                resumeFile.files = files;
+                handleFileSelect();
+            }
+        });
+        
+        // Load initial stats
+        loadDatasetStats();
+        loadCategories();
+        
+        function handleFileSelect() {
+            const file = resumeFile.files[0];
+            if (file) {
+                const validTypes = ['.pdf', '.docx', '.txt'];
+                const fileExt = '.' + file.name.split('.').pop().toLowerCase();
+                
+                if (!validTypes.includes(fileExt)) {
+                    showError('Please select a PDF, DOCX, or TXT file.');
+                    analyzeBtn.disabled = true;
+                    return;
+                }
+                
+                analyzeBtn.disabled = false;
+                showSuccess(`File selected: ${file.name}`);
+            }
+        }
+        
+        async function analyzeResume() {
+            const file = resumeFile.files[0];
+            if (!file) return;
+            
+            loading.style.display = 'block';
+            analyzeBtn.disabled = true;
+            uploadStatus.innerHTML = '';
+            
+            const formData = new FormData();
+            formData.append('resume', file);
+            
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    showError(data.error);
+                } else {
+                    displayResults(data);
+                    showSuccess('Resume analyzed successfully! Career insights generated.');
+                }
+                
+            } catch (err) {
+                showError('Network error: ' + err.message);
+            } finally {
+                loading.style.display = 'none';
+                analyzeBtn.disabled = false;
+            }
+        }
+        
+        function displayResults(data) {
+            // Display basic resume info
+            document.getElementById('resumeInfo').innerHTML = `
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-number">${data.resume_info.skills_count}</div>
+                        <div class="stat-label">Skills Found</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">${data.resume_info.experience_years}</div>
+                        <div class="stat-label">Years Experience</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">${data.analysis.avg_similarity.toFixed(1)}%</div>
+                        <div class="stat-label">Avg Match Score</div>
+                    </div>
+                </div>
+                
+                <h3>Predicted Career Paths:</h3>
+                ${data.resume_info.category_predictions.map(pred => `
+                    <span class="category-badge">${pred.category} (${pred.confidence}%)</span>
+                `).join('')}
+                
+                <h3>Skills Detected:</h3>
+                <div class="skills-list">
+                    ${data.resume_info.skills_found.map(skill => 
+                        `<span class="skill-tag">${skill}</span>`
+                    ).join('')}
+                </div>
+                
+                <h3>Text Preview:</h3>
+                <p style="background: #f7fafc; padding: 15px; border-radius: 8px; font-size: 0.9rem;">
+                    ${data.resume_info.text_preview}
+                </p>
+            `;
+            
+            // Display profile strength analysis
+            const strength = data.enhanced_features.profile_strength;
+            document.getElementById('profileAnalysis').innerHTML = `
+                <div class="stat-item" style="margin-bottom: 20px;">
+                    <div class="stat-number">${strength.total_score}/100</div>
+                    <div class="stat-label">Overall Profile Strength - ${strength.strength_level}</div>
+                </div>
+                
+                <div class="profile-strength">
+                    <div class="profile-strength-fill" style="width: ${strength.total_score}%"></div>
+                </div>
+                <div class="strength-labels">
+                    <span>Beginner</span>
+                    <span>Intermediate</span>
+                    <span>Advanced</span>
+                </div>
+                
+                <h3>Score Breakdown:</h3>
+                <div class="progress-item">
+                    <div class="progress-label">
+                        <span>Experience (${strength.breakdown.experience}/30)</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${(strength.breakdown.experience/30)*100}%"></div>
+                    </div>
+                </div>
+                <div class="progress-item">
+                    <div class="progress-label">
+                        <span>Skills (${strength.breakdown.skills}/40)</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${(strength.breakdown.skills/40)*100}%"></div>
+                    </div>
+                </div>
+                <div class="progress-item">
+                    <div class="progress-label">
+                        <span>Career Fit (${strength.breakdown.category_fit}/30)</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${(strength.breakdown.category_fit/30)*100}%"></div>
+                    </div>
+                </div>
+            `;
+            
+            // Display skill gap analysis
+            document.getElementById('skillGapAnalysis').innerHTML = `
+                <h3>Missing Trending Skills:</h3>
+                <div class="skills-list">
+                    ${data.enhanced_features.missing_skills.map(skill => 
+                        `<span class="skill-tag missing">${skill} ⚠️</span>`
+                    ).join('')}
+                </div>
+                
+                <h3>Industry Trending Skills:</h3>
+                <div class="skills-list">
+                    ${data.enhanced_features.trending_skills.map(skill => 
+                        `<span class="skill-tag trending">${skill} 🔥</span>`
+                    ).join('')}
+                </div>
+                
+                <p style="margin-top: 15px; font-size: 0.9rem; color: #718096;">
+                    <strong>Recommendation:</strong> Focus on learning the missing trending skills to increase your market value.
+                </p>
+            `;
+            
+            // Display interview preparation
+            document.getElementById('interviewPrep').innerHTML = `
+                <h3>Common Interview Questions:</h3>
+                ${data.enhanced_features.interview_questions.map(question => `
+                    <div class="interview-question">
+                        <strong>Q:</strong> ${question}
+                    </div>
+                `).join('')}
+                
+                <p style="margin-top: 15px; font-size: 0.9rem; color: #718096;">
+                    <strong>Tip:</strong> Prepare each topic thoroughly according to the questions. Research key concepts, practice explaining them clearly, and prepare real-world examples from your experience.
+                </p>
+            `;
+            
+            // Display learning recommendations - FIXED VERSION WITH WORKING LINKS
+            document.getElementById('learningRecommendations').innerHTML = `
+                ${data.enhanced_features.learning_recommendations.map(rec => `
+                    <div class="learning-resource">
+                        <h4>${rec.skill}</h4>
+                        <p><strong>Recommended Courses:</strong></p>
+                        ${rec.courses.map(course => `
+                            <div class="course-item">
+                                <div class="course-name">
+                                    ${course.name}
+                                    <span class="course-type">${course.type}</span>
+                                </div>
+                                <a href="${course.link}" target="_blank" rel="noopener noreferrer" class="course-link">
+                                    📚 Access Course
+                                </a>
+                            </div>
+                        `).join('')}
+                        <p><strong>Learning Platforms:</strong> ${rec.platforms.join(', ')}</p>
+                        <p><strong>Practice Projects:</strong></p>
+                        <ul style="margin-left: 20px; font-size: 0.9rem;">
+                            ${rec.projects.map(project => `<li>${project}</li>`).join('')}
+                        </ul>
+                    </div>
+                `).join('')}
+                
+                ${data.enhanced_features.learning_recommendations.length === 0 ? `
+                    <p>Great job! Your skills align well with current market trends.</p>
+                ` : ''}
+            `;
+            
+            // Display job recommendations
+            document.getElementById('jobRecommendations').innerHTML = 
+                data.job_recommendations.map(job => `
+                    <div class="job-item">
+                        <span class="salary-badge">${job.salary_range}</span>
+                        <h4>${job.job_title}</h4>
+                        <p><strong>Company:</strong> ${job.company}</p>
+                        <p><strong>Level:</strong> ${job.experience_level}</p>
+                        <p><strong>Required Skills:</strong> ${job.required_skills.join(', ')}</p>
+                        <p>${job.description}</p>
+                    </div>
+                `).join('');
+            
+            // Display similar resumes
+            document.getElementById('similarResumes').innerHTML = 
+                data.similar_resumes.map(resume => `
+                    <div class="match-item">
+                        <span class="match-score">${resume.similarity_score}% Match</span>
+                        <strong>${resume.category}</strong>
+                        <p>${resume.resume_preview}</p>
+                        <div class="skills-list">
+                            ${resume.matched_skills.map(skill => 
+                                `<span class="skill-tag">${skill}</span>`
+                            ).join('')}
+                        </div>
+                    </div>
+                `).join('');
+            
+            resultsSection.style.display = 'block';
+            resultsSection.scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        async function loadDatasetStats() {
+            try {
+                const response = await fetch('/stats');
+                const stats = await response.json();
+                
+                document.getElementById('totalResumes').textContent = stats.total_resumes;
+                document.getElementById('totalCategories').textContent = stats.total_categories;
+                document.getElementById('avgLength').textContent = stats.avg_resume_length;
+                
+            } catch (err) {
+                console.error('Error loading stats:', err);
+            }
+        }
+        
+        async function loadCategories() {
+            try {
+                const categories = ['Information-Technology', 'Data-Science', 'Business-Development', 
+                                  'Healthcare', 'Finance', 'Engineering'];
+                
+                document.getElementById('categoryList').innerHTML = `
+                    <div class="skills-list">
+                        ${categories.map(cat => `
+                            <span class="category-badge" onclick="loadCategoryExamples('${cat}')">${cat}</span>
+                        `).join('')}
+                    </div>
+                    <div id="categoryExamples"></div>
+                `;
+                
+            } catch (err) {
+                console.error('Error loading categories:', err);
+            }
+        }
+        
+        async function loadCategoryExamples(category) {
+            try {
+                const response = await fetch(`/category/${category}`);
+                const data = await response.json();
+                
+                document.getElementById('categoryExamples').innerHTML = `
+                    <h4>${category} Career Insights (${data.count} profiles)</h4>
+                    
+                    <h5>Trending Skills:</h5>
+                    <div class="skills-list">
+                        ${data.trending_skills.map(skill => 
+                            `<span class="skill-tag trending">${skill}</span>`
+                        ).join('')}
+                    </div>
+                    
+                    <h5>Common Interview Questions:</h5>
+                    ${data.interview_questions.map(question => `
+                        <div class="interview-question">${question}</div>
+                    `).join('')}
+                    
+                    ${data.examples.map(example => `
+                        <div class="match-item">
+                            <p>${example.preview}</p>
+                            <div class="skills-list">
+                                ${example.skills.map(skill => 
+                                    `<span class="skill-tag">${skill}</span>`
+                                ).join('')}
+                            </div>
+                        </div>
+                    `).join('')}
+                `;
+                
+            } catch (err) {
+                console.error('Error loading category examples:', err);
+            }
+        }
+        
+        function showError(message) {
+            uploadStatus.innerHTML = `<div class="error">${message}</div>`;
+        }
+        
+        function showSuccess(message) {
+            uploadStatus.innerHTML = `<div class="success">${message}</div>`;
+        }
+    </script>
+</body>
+</html> 
